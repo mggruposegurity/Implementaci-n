@@ -34,7 +34,7 @@ if (isset($_POST['login'])) {
         $usuario = mysqli_real_escape_string($conexion, $usuario);
 
         // Buscar por usuario o correo
-        $query      = "SELECT * FROM tbl_ms_usuarios WHERE usuario='$usuario' OR email='$usuario'";
+        $query      = "SELECT * FROM tbl_ms_usuarios WHERE usuario='$usuario' OR correo='$usuario'";
         $resultado  = $conexion->query($query);
 
         if ($resultado && $resultado->num_rows > 0) {
