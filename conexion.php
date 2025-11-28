@@ -1,5 +1,5 @@
 <?php
-$conexion = new mysqli("localhost", "root", "", "sistema_empleados", 3306);
+$conexion = new mysqli("localhost", "root", "Moncada1234.", "sistema_empleados", 3306);
 // include("header.php");
 
 if ($conexion->connect_error) {
