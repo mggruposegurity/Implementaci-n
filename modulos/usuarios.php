@@ -369,7 +369,6 @@ button {
 <div id="tablaUsuarios" style="padding:0 20px 20px 20px;">
   <table>
     <tr>
-      <th>ID</th>
       <th>Nombre</th>
       <th>Usuario</th>
       <th>Correo</th>
@@ -379,7 +378,6 @@ button {
     </tr>
     <?php while ($fila = $resultado->fetch_assoc()): ?>
     <tr>
-      <td><?= $fila['id'] ?></td>
       <td><?= htmlspecialchars($fila['nombre'] ?? '—') ?></td>
       <td><?= htmlspecialchars($fila['usuario']) ?></td>
       <td><?= htmlspecialchars($fila['email']) ?></td>

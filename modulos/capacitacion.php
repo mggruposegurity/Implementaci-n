@@ -1,6 +1,6 @@
 <?php
-include("../conexion.php");
 session_start();
+include("../conexion.php");
 
 if (!isset($_SESSION['usuario'])) {
     echo "<p style='color:red; text-align:center;'>⚠️ Acceso no autorizado.</p>";

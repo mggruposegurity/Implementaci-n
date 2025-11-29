@@ -64,7 +64,7 @@ foreach ($registro as $campo => $valor) {
 // Datos
 $col = 'A';
 foreach ($registro as $valor) {
-    $sheet->setCellValue($col . '2', htmlspecialchars($valor));
+    $sheet->setCellValue($col . '2', htmlspecialchars($valor ?? ''));
     $col++;
 }
 

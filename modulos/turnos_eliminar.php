@@ -1,6 +1,6 @@
 <?php
-include("../conexion.php");
 session_start();
+include("../conexion.php");
 
 if (isset($_GET['id'])) {
     $id_turno = intval($_GET['id']);

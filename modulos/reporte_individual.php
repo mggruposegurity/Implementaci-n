@@ -69,7 +69,7 @@ if (isset($_POST['accion'])) {
         }
 
         // Nombre: solo letras y espacios, mínimo 3 caracteres
-        if (!preg_match('/^[A-ZÁÉÍÓÚÑ ]{3,100}$/u', $nombre)) {
+        if (!preg_match('/^[A-Za-zÁÉÍÓÚÑáéíóúñ ]{3,100}$/u', $nombre)) {
             echo "⚠️ El nombre solo debe contener letras y espacios (mínimo 3 caracteres).";
             exit();
         }

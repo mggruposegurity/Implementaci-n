@@ -193,7 +193,7 @@ $result = mysqli_query($conexion, $query);
                                 }
                                 echo "<td>" . $formatted . "</td>";
                             } else {
-                                echo "<td>" . htmlspecialchars($dato) . "</td>";
+                                echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                             }
                         }
                         echo "</tr>";

@@ -1,16 +1,17 @@
 <?php
+session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 include("../conexion.php");
 include("../funciones.php");
-include("../header.php");
-session_start();
 
 // Verificar sesión
 if (!isset($_SESSION['usuario'])) {
     header("Location: ../index.php");
     exit();
 }
+
+include("../header.php");
 
 // Registrar entrada al módulo bitácora
 $id_usuario = $_SESSION['usuario'];
@@ -132,7 +133,6 @@ if (!empty($mensaje)) echo "<p style='color:green; text-align:center; font-weigh
 <table>
 <thead>
 <tr>
-<th>ID</th>
 <th>Usuario</th>
 <th>Nombre</th>
 <th>Acción</th>
@@ -147,7 +147,6 @@ if ($resultado && $resultado->num_rows > 0) {
     while ($fila = $resultado->fetch_assoc()) {
         $id_bitacora = $fila['id_bitacora'];
         echo "<tr>
-                <td>{$id_bitacora}</td>
                 <td>" . htmlspecialchars($fila['usuario'] ?? '') . "</td>
                 <td>" . htmlspecialchars($fila['nombre'] ?? '') . "</td>
                 <td>" . htmlspecialchars($fila['accion'] ?? '') . "</td>

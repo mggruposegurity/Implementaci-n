@@ -184,7 +184,7 @@ if ($accion === "salida") {
 
     $sql = "
         UPDATE tbl_ms_asistencia 
-        SET hora_salida = '$hora', estado = 'COMPLETO' 
+        SET hora_salida = '$hora', estado = 'Presente' 
         WHERE id_asistencia = $id
     ";
 

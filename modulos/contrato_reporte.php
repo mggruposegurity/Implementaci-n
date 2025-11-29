@@ -15,7 +15,7 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 $id_contrato = (int)$_GET['id'];
 
 // Cargar datos del contrato
-$stmt = $conexion->prepare("SELECT * FROM TBL_MS_CONTRATOS WHERE id = ? LIMIT 1");
+$stmt = $conexion->prepare("SELECT * FROM tbl_ms_contratos WHERE id = ? LIMIT 1");
 if (!$stmt) {
     echo "<p style='color:red; text-align:center;'>Error al preparar la consulta.</p>";
     exit();

@@ -15,7 +15,7 @@ $id_usuario = $_SESSION['usuario'];
    MAPEO SEGURO DE MÓDULOS → CONSULTAS SQL
    ========================================== */
 $reportes = [
-    "Contratos" => ["titulo" => "Gestión de Contratos", "tabla" => "TBL_MS_CONTRATOS"],
+    "Contratos" => ["titulo" => "Gestión de Contratos", "tabla" => "tbl_ms_contratos"],
 ];
 
 // Verificar módulo recibido
@@ -178,7 +178,7 @@ $result = mysqli_query($conexion, $query);
                     while ($fila = mysqli_fetch_assoc($result)) {
                         echo "<tr>";
                         foreach ($fila as $campo => $dato) {
-                            echo "<td>" . htmlspecialchars($dato) . "</td>";
+                            echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                         }
                         echo "</tr>";
                     }

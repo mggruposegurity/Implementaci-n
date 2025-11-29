@@ -42,10 +42,9 @@ function log_event($id_usuario, $accion, $descripcion) {
     global $conexion; // $conexion viene de conexion.php
 
     $sql = "INSERT INTO tbl_ms_bitacora 
-                (id_usuario, usuario, accion, descripcion, fecha_hora)
+                (id_usuario, accion, descripcion, fecha_hora)
             VALUES (
                 ?,
-                (SELECT usuario FROM tbl_ms_usuarios WHERE id = ?),
                 ?,
                 ?,
                 NOW()
@@ -54,8 +53,8 @@ function log_event($id_usuario, $accion, $descripcion) {
     $stmt = $conexion->prepare($sql);
 
     if ($stmt) {
-        // i = int, s = string → id_usuario, id_usuario, accion, descripcion
-        $stmt->bind_param("iiss", $id_usuario, $id_usuario, $accion, $descripcion);
+        // i = int, s = string → id_usuario, accion, descripcion
+        $stmt->bind_param("iss", $id_usuario, $accion, $descripcion);
         $result = $stmt->execute();
         $stmt->close();
         return $result;

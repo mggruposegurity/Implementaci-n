@@ -1,7 +1,7 @@
 <?php
+session_start();
 include("../conexion.php");
 $conexion->set_charset("utf8mb4");
-session_start();
 
 /* ==============================
    VALIDAR SESIÓN Y ROL
@@ -71,7 +71,7 @@ if (isset($_POST['accion'])) {
         }
 
         // Nombre: solo letras y espacios, mínimo 3 caracteres
-        if (!preg_match('/^[A-ZÁÉÍÓÚÑ ]{3,100}$/u', $nombre)) {
+        if (!preg_match('/^[A-Za-zÁÉÍÓÚÑáéíóúñ ]{3,100}$/u', $nombre)) {
             echo "⚠️ El nombre solo debe contener letras y espacios (mínimo 3 caracteres).";
             exit();
         }
@@ -307,17 +307,17 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'tabla') {
               </tr>";
     } else {
       while ($row = $result->fetch_assoc()) {
-    $data_estado = htmlspecialchars($row['estado']);
+    $data_estado = htmlspecialchars($row['estado'] ?? '');
     $id_row      = (int)$row['id'];
 
     echo "<tr data-estado='{$data_estado}'>
             <td>{$id_row}</td>
-            <td>" . htmlspecialchars($row['nombre']) . "</td>
-            <td>" . htmlspecialchars($row['dni']) . "</td>
-            <td>" . htmlspecialchars($row['puesto']) . "</td>
-            <td>" . htmlspecialchars($row['telefono']) . "</td>
-            <td>" . htmlspecialchars($row['correo']) . "</td>
-            <td>" . htmlspecialchars($row['estado']) . "</td>
+            <td>" . htmlspecialchars($row['nombre'] ?? '') . "</td>
+            <td>" . htmlspecialchars($row['dni'] ?? '') . "</td>
+            <td>" . htmlspecialchars($row['puesto'] ?? '') . "</td>
+            <td>" . htmlspecialchars($row['telefono'] ?? '') . "</td>
+            <td>" . htmlspecialchars($row['correo'] ?? '') . "</td>
+            <td>" . htmlspecialchars($row['estado'] ?? '') . "</td>
             <td class='acciones'>
               <button class='btn-accion btn-editar' onclick=\"editarEmpleado({$id_row})\">
                 ✏️ Editar

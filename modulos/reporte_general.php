@@ -24,7 +24,7 @@ $reportes = [
     "bitacora"     => ["titulo" => "Gestión de Bitácora",      "tabla" => "tbl_ms_bitacora"],
     "turnos"       => ["titulo" => "Turnos y Ubicaciones",     "tabla" => "tbl_ms_turnos"],
     "facturacion"  => ["titulo" => "Gestión de Facturación",   "tabla" => "TBL_MS_FACTURAS"],
-    "contratos"    => ["titulo" => "Gestión de Contratos",     "tabla" => "TBL_MS_CONTRATOS"],
+    "contratos"    => ["titulo" => "Gestión de Contratos",     "tabla" => "tbl_ms_contratos"],
     "incidentes"   => ["titulo" => "Gestión de Incidentes",    "tabla" => "incidentes"],
     "capacitacion" => ["titulo" => "Gestión de Capacitación",  "tabla" => "capacitaciones"],
 ];
@@ -251,7 +251,7 @@ $result = mysqli_query($conexion, $query);
                                     }
                                     echo "<td>" . $formatted . "</td>";
                                 } else {
-                                    echo "<td>" . htmlspecialchars($dato) . "</td>";
+                                    echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                                 }
 
                             // Formateo especial para planilla (deducciones JSON, si aplica)
@@ -265,11 +265,11 @@ $result = mysqli_query($conexion, $query);
                                     $formatted .= "Total Deducciones: " . ($deducciones['total'] ?? 0) . "<br>";
                                     echo "<td>" . $formatted . "</td>";
                                 } else {
-                                    echo "<td>" . htmlspecialchars($dato) . "</td>";
+                                    echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                                 }
 
                             } else {
-                                echo "<td>" . htmlspecialchars($dato) . "</td>";
+                                echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                             }
                         }
                         echo "</tr>";

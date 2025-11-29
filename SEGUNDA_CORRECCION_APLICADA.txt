@@ -1,0 +1,37 @@
+✅ SEGUNDA CORRECCIÓN APLICADA - FOREIGN KEY
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA #2 IDENTIFICADO Y RESUELTO:
+
+La Foreign Key en tbl_planilla_items estaba mal configurada:
+  
+  ❌ ANTES: Apuntaba a `tbl_planilla_old` (tabla antigua)
+  ✅ AHORA: Apunta correctamente a `tbl_planilla` (tabla nueva)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CAMBIO REALIZADO EN BD:
+
+1. ❌ Eliminada FK incorrecta: `tbl_planilla_items_ibfk_1`
+   
+2. ✅ Creada FK correcta: `fk_planilla_items_planilla`
+   - Tabla: tbl_planilla_items (columna: id_planilla)
+   - Referencia: tbl_planilla (columna: id_planilla)
+   - Acción: ON DELETE CASCADE, ON UPDATE CASCADE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ AMBAS CORRECCIONES COMPLETADAS:
+
+  1. ✓ Valores ENUM corregidos en PHP (percepcion/deduccion)
+  2. ✓ Foreign Key corregida en BD (apunta a tbl_planilla)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 PRÓXIMO PASO:
+
+Recarga el navegador (Ctrl+Shift+R) e intenta crear una 
+nueva planilla. Ahora debería funcionar sin errores.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

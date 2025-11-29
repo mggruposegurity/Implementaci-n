@@ -178,7 +178,7 @@ $result = mysqli_query($conexion, $query);
                     while ($fila = mysqli_fetch_assoc($result)) {
                         echo "<tr>";
                         foreach ($fila as $campo => $dato) {
-                            echo "<td>" . htmlspecialchars($dato) . "</td>";
+                            echo "<td>" . htmlspecialchars($dato ?? '') . "</td>";
                         }
                         echo "</tr>";
                     }

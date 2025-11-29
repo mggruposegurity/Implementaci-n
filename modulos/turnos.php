@@ -173,11 +173,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit();
 
         // Registro en bitácora
-        $stmt = $conexion->prepare("INSERT INTO tbl_ms_bitacora (id_usuario, usuario, accion, descripcion, fecha)
-             VALUES (?, ?, ?, ?, NOW())");
+        $stmt = $conexion->prepare("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
+             VALUES (?, ?, ?, NOW())");
         $accion_bitacora = 'Creación';
         $descripcion = "Se creó el turno $nombre";
-        $stmt->bind_param("isss", $id_usuario, $nombre_usuario, $accion_bitacora, $descripcion);
+        $stmt->bind_param("iss", $id_usuario, $accion_bitacora, $descripcion);
         $stmt->execute();
 
         echo "OK"; exit();
@@ -207,11 +207,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
 
         // Registro en bitácora
-        $stmt = $conexion->prepare("INSERT INTO tbl_ms_bitacora (id_usuario, usuario, accion, descripcion, fecha)
-             VALUES (?, ?, ?, ?, NOW())");
+        $stmt = $conexion->prepare("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
+             VALUES (?, ?, ?, NOW())");
         $accion_bitacora = 'Actualización';
         $descripcion = "Actualizó el turno $nombre";
-        $stmt->bind_param("isss", $id_usuario, $nombre_usuario, $accion_bitacora, $descripcion);
+        $stmt->bind_param("iss", $id_usuario, $accion_bitacora, $descripcion);
         $stmt->execute();
 
         echo "OK"; exit();
@@ -245,11 +245,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($stmt->execute()) {
             // Registro en bitácora
             $stmtB = $conexion->prepare("INSERT INTO tbl_ms_bitacora 
-                       (id_usuario, usuario, accion, descripcion, fecha) 
-                       VALUES (?,?,?,?, NOW())");
+                       (id_usuario, accion, descripcion, fecha) 
+                       VALUES (?,?,?, NOW())");
             $acc  = 'Asignación de turno';
             $desc = "Asignó turno ID $id_turno al empleado ID $id_empleado (cerró previas)";
-            $stmtB->bind_param('isss', $id_usuario, $nombre_usuario, $acc, $desc);
+            $stmtB->bind_param('iss', $id_usuario, $acc, $desc);
             $stmtB->execute();
             echo 'OK';
         } else {
@@ -276,11 +276,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($delete) {
             // Registro en bitácora
             $stmt = $conexion->prepare("INSERT INTO tbl_ms_bitacora 
-                        (id_usuario, usuario, accion, descripcion, fecha) 
-                        VALUES (?, ?, ?, ?, NOW())");
+                        (id_usuario, accion, descripcion, fecha) 
+                        VALUES (?, ?, ?, NOW())");
             $accion_bitacora = 'Eliminación de turno';
             $descripcion = "Eliminó el turno con ID $id_turno y sus asignaciones relacionadas.";
-            $stmt->bind_param("isss", $id_usuario, $nombre_usuario, $accion_bitacora, $descripcion);
+            $stmt->bind_param("iss", $id_usuario, $accion_bitacora, $descripcion);
             $stmt->execute();
             echo "OK";
         } else {

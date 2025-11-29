@@ -7,43 +7,14 @@ ini_set('display_errors', 1);
 session_start();
 include("conexion.php");
 
-// Cargar roles desde la base de datos — asegurar existencia de la tabla
+// Cargar roles desde la base de datos
 $roles = [];
-try {
-  $check = $conexion->query("SHOW TABLES LIKE 'tbl_ms_roles'");
-  if (!$check || $check->num_rows === 0) {
-    // Intentar crear la tabla con estructura mínima y valores por defecto
-    $create_sql = "CREATE TABLE IF NOT EXISTS `tbl_ms_roles` (
-      `id_rol` int(11) NOT NULL AUTO_INCREMENT,
-      `descripcion` varchar(100) NOT NULL,
-      `usuario_creado` varchar(50) DEFAULT NULL,
-      `fecha_creado` datetime DEFAULT current_timestamp(),
-      `usuario_modificado` varchar(50) DEFAULT NULL,
-      `fecha_modificado` datetime DEFAULT NULL,
-      PRIMARY KEY (`id_rol`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;";
-    $conexion->query($create_sql);
-    // Insertar roles por defecto si la tabla quedó vacía
-    $count = $conexion->query("SELECT COUNT(*) AS c FROM tbl_ms_roles");
-    $rows = $count ? $count->fetch_assoc()['c'] : 0;
-    if (empty($rows)) {
-      $conexion->query("INSERT INTO tbl_ms_roles (descripcion, usuario_creado, fecha_creado) VALUES ('Admin','sistema', NOW()), ('Supervisor','sistema', NOW())");
-    }
-  }
-
-  // Cargar descripciones desde la tabla (si existe ahora)
-  $rolesQuery = $conexion->query("SELECT descripcion FROM tbl_ms_roles ORDER BY descripcion ASC");
-  if ($rolesQuery) {
+$rolesQuery = $conexion->query("SELECT descripcion FROM tbl_ms_roles ORDER BY descripcion ASC");
+if ($rolesQuery) {
     while ($row = $rolesQuery->fetch_assoc()) {
-      $roles[] = $row['descripcion'];
+        // descripcion: Admin, Supervisor, etc.
+        $roles[] = $row['descripcion'];
     }
-  }
-} catch (Exception $e) {
-  // En caso de error (permisos, base no existe, etc.) devolvemos roles por defecto
-  error_log("[registro.php] Error cargando tbl_ms_roles: " . $e->getMessage());
-  if (empty($roles)) {
-    $roles = ['Admin', 'Supervisor'];
-  }
 }
 
 // Incluir PHPMailer
@@ -120,9 +91,9 @@ if (!in_array($rol, $rolesPermitidos, true)) {
             // No existe empleado con ese DNI → lo creamos básico
             $stmt_emp = $conexion->prepare("
                 INSERT INTO tbl_ms_empleados 
-                    (nombre, dni, puesto, salario, fecha_ingreso, correo, telefono, estado, turno)
+                    (nombre, dni, puesto, salario, fecha_ingreso, correo, telefono, estado)
                 VALUES 
-                    (?, ?, NULL, NULL, NULL, ?, '', 'Activo', NULL)
+                    (?, ?, NULL, NULL, NULL, ?, '', 'Activo')
             ");
             $stmt_emp->bind_param("sss", $nombre, $dni, $email);
             if (!$stmt_emp->execute()) {

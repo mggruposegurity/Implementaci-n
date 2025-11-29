@@ -1,6 +1,6 @@
 <?php
-include("../conexion.php");
 session_start();
+include("../conexion.php");
 
 if (!isset($_SESSION['usuario'])) {
     echo "<p style='color:red; text-align:center;'>⚠️ Acceso no autorizado.</p>";
@@ -69,39 +69,64 @@ if (isset($_POST['accion'])) {
         if ($salario_total < 0) $salario_total = 0;
 
         if ($accion === 'agregar') {
-            $sql = "INSERT INTO tbl_planilla (
-                        empleado_id, nombre, dias_trabajados, salario_diario,
-                        horas_extra, pago_extra, deducciones, salario_total, fecha_registro
-                    ) VALUES (
-                        $empleado_id, '$nombre', $dias_trabajados, $salario_diario,
-                        $horas_extra, $pago_extra, $deducciones, $salario_total, '$fecha_registro'
-                    )";
-            $conexion->query($sql);
+            // 1) Crear o seleccionar la cabecera (busca por mes/anio/tipo)
+            $mes = (int)date('n', strtotime($fecha_registro));
+            $anio = (int)date('Y', strtotime($fecha_registro));
+            $tipo = 'mensual';
+            $resCab = $conexion->query("SELECT id_planilla FROM tbl_planilla WHERE mes=$mes AND anio=$anio AND tipo='$tipo' LIMIT 1");
+            if ($resCab && $resCab->num_rows > 0) {
+                $rowCab = $resCab->fetch_assoc();
+                $id_planilla = (int)$rowCab['id_planilla'];
+            } else {
+                // Crear cabecera nueva
+                $periodo_inicio = date('Y-m-01', strtotime($fecha_registro));
+                $periodo_fin = date('Y-m-t', strtotime($fecha_registro));
+                $conexion->query("INSERT INTO tbl_planilla (periodo_inicio, periodo_fin, mes, anio, tipo, fecha_generacion, estado, creado_por, total_percepciones, total_deducciones, total_neto) VALUES ('$periodo_inicio','$periodo_fin',$mes,$anio,'$tipo',NOW(),'generada',$id_usuario,0,0,0)");
+                $id_planilla = $conexion->insert_id;
+            }
+
+            // 2) Insertar línea en tbl_planilla_items
+            $descripcion_item = "Pago de nómina - $nombre";
+            $descripcion_item = $conexion->real_escape_string($descripcion_item);
+            $monto_total = (float)$salario_total;
+            $sql_item = "INSERT INTO tbl_planilla_items (id_planilla, id_empleado, tipo_item, descripcion, cantidad, monto_unitario, monto_total) VALUES ($id_planilla, $empleado_id, 'percepcion', '$descripcion_item', 1, $monto_total, $monto_total)";
+            $conexion->query($sql_item);
+
+            // 3) Actualizar totales en tbl_planilla
+            $conexion->query("UPDATE tbl_planilla SET total_percepciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='percepcion'), total_deducciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='deduccion'), total_neto = (SELECT IFNULL(SUM(CASE WHEN tipo_item='percepcion' THEN monto_total ELSE -monto_total END),0) FROM tbl_planilla_items WHERE id_planilla=$id_planilla) WHERE id_planilla = $id_planilla");
 
             // Bitácora
             $accion_b = "Creación de Registro de Planilla";
             $descripcion_b = "Se registró un pago en planilla para el empleado '$nombre'.";
+            $accion_b = $conexion->real_escape_string($accion_b);
+            $descripcion_b = $conexion->real_escape_string($descripcion_b);
             $conexion->query("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
                               VALUES ($id_usuario, '$accion_b', '$descripcion_b', NOW())");
 
             echo "OK";
         } elseif ($accion === 'editar') {
-            $sql = "UPDATE tbl_planilla SET
-                        empleado_id    = $empleado_id,
-                        nombre         = '$nombre',
-                        dias_trabajados= $dias_trabajados,
-                        salario_diario = $salario_diario,
-                        horas_extra    = $horas_extra,
-                        pago_extra     = $pago_extra,
-                        deducciones    = $deducciones,
-                        salario_total  = $salario_total,
-                        fecha_registro = '$fecha_registro'
-                    WHERE id_planilla = $id";
-            $conexion->query($sql);
+            // Obtener id_planilla del item que se edita
+            $resItem = $conexion->query("SELECT id_planilla FROM tbl_planilla_items WHERE id_item = $id");
+            if ($resItem && $resItem->num_rows > 0) {
+                $rowItem = $resItem->fetch_assoc();
+                $id_planilla = (int)$rowItem['id_planilla'];
+                
+                // Actualizar item en tbl_planilla_items
+                $descripcion_item = "Pago de nómina - $nombre";
+                $descripcion_item = $conexion->real_escape_string($descripcion_item);
+                $monto_total = (float)$salario_total;
+                $sql_update = "UPDATE tbl_planilla_items SET cantidad=1, monto_unitario=$monto_total, monto_total=$monto_total, descripcion='$descripcion_item' WHERE id_item = $id";
+                $conexion->query($sql_update);
+                
+                // Recalcular totales en tbl_planilla
+                $conexion->query("UPDATE tbl_planilla SET total_percepciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='percepcion'), total_deducciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='deduccion'), total_neto = (SELECT IFNULL(SUM(CASE WHEN tipo_item='percepcion' THEN monto_total ELSE -monto_total END),0) FROM tbl_planilla_items WHERE id_planilla=$id_planilla) WHERE id_planilla = $id_planilla");
+            }
 
             // Bitácora
             $accion_b = "Actualización de Registro de Planilla";
             $descripcion_b = "Se modificó el registro de planilla para el empleado '$nombre' (ID: $id).";
+            $accion_b = $conexion->real_escape_string($accion_b);
+            $descripcion_b = $conexion->real_escape_string($descripcion_b);
             $conexion->query("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
                               VALUES ($id_usuario, '$accion_b', '$descripcion_b', NOW())");
 
@@ -113,11 +138,27 @@ if (isset($_POST['accion'])) {
     // === ELIMINAR ===
     if ($accion === 'eliminar') {
         $id = (int)$_POST['id'];
-        $conexion->query("DELETE FROM tbl_planilla WHERE id_planilla = $id");
+        // Obtener id_planilla del item antes de eliminar
+        $resItem = $conexion->query("SELECT id_planilla FROM tbl_planilla_items WHERE id_item = $id");
+        $id_planilla = null;
+        if ($resItem && $resItem->num_rows > 0) {
+            $rowItem = $resItem->fetch_assoc();
+            $id_planilla = (int)$rowItem['id_planilla'];
+        }
+        
+        // Eliminar item de tbl_planilla_items
+        $conexion->query("DELETE FROM tbl_planilla_items WHERE id_item = $id");
+        
+        // Recalcular totales en tbl_planilla si existe
+        if ($id_planilla) {
+            $conexion->query("UPDATE tbl_planilla SET total_percepciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='percepcion'), total_deducciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='deduccion'), total_neto = (SELECT IFNULL(SUM(CASE WHEN tipo_item='percepcion' THEN monto_total ELSE -monto_total END),0) FROM tbl_planilla_items WHERE id_planilla=$id_planilla) WHERE id_planilla = $id_planilla");
+        }
 
         // Bitácora
         $accion_b = "Eliminación de Registro de Planilla";
         $descripcion_b = "Se eliminó el registro de planilla con ID $id.";
+        $accion_b = $conexion->real_escape_string($accion_b);
+        $descripcion_b = $conexion->real_escape_string($descripcion_b);
         $conexion->query("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
                           VALUES ($id_usuario, '$accion_b', '$descripcion_b', NOW())");
 
@@ -130,19 +171,23 @@ if (isset($_POST['accion'])) {
    CARGAR TABLA (AJAX)
    ==================================================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] == 'tabla') {
-    $query = "SELECT
-                id_planilla AS id,
-                empleado_id,
-                nombre,
-                dias_trabajados,
-                salario_diario,
-                horas_extra,
-                pago_extra,
-                deducciones,
-                salario_total,
-                fecha_registro
-              FROM tbl_planilla
-              ORDER BY fecha_registro DESC";
+   $query = "
+    SELECT
+      p.id_planilla AS id_planilla,
+      p.mes, p.anio, p.tipo, p.fecha_generacion,
+      pi.id_item AS item_id,
+      pi.id_empleado,
+      e.nombre,
+      e.dni AS dni,
+      pi.descripcion,
+      pi.monto_total,
+      pi.tipo_item
+    FROM tbl_planilla p
+    LEFT JOIN tbl_planilla_items pi ON p.id_planilla = pi.id_planilla
+    LEFT JOIN tbl_ms_empleados e ON pi.id_empleado = e.id_empleado
+    WHERE pi.id_item IS NOT NULL
+    ORDER BY p.anio DESC, p.mes DESC, p.id_planilla DESC, e.nombre ASC, pi.tipo_item DESC
+";
     $result = $conexion->query($query);
     if (!$result) {
         echo "<div class='error-msg'>Error al cargar la planilla: " . htmlspecialchars($conexion->error) . "</div>";
@@ -152,40 +197,44 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'tabla') {
     echo "<table id='tablaPlanillaAjax' class='compacto'>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>ID Item</th>
+                <th>Planilla (Mes/Año)</th>
                 <th>Empleado</th>
-                <th>Días Trabajados</th>
-                <th>Salario Diario</th>
-                <th>Horas Extra</th>
-                <th>Pago Extra</th>
-                <th>Deducciones</th>
-                <th>Total</th>
-                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Tipo</th>
+                <th>Monto</th>
+                <th>Fecha Generación</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>";
 
     if ($result->num_rows === 0) {
-        echo "<tr><td colspan='10' style='text-align:center; padding:25px;'>No hay registros de planilla aún.</td></tr>";
+      echo "<tr><td colspan='9' style='text-align:center; padding:25px;'>No hay registros de planilla aún.</td></tr>";
     } else {
         while ($row = $result->fetch_assoc()) {
-            $id = (int)$row['id'];
+            $item_id = (int)$row['item_id'];
+            $id_planilla = (int)$row['id_planilla'];
+            $mes = (int)$row['mes'];
+            $anio = (int)$row['anio'];
+            $tipo_item = strtoupper($row['tipo_item']);
+            $meses = array('', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre');
+            $nombre_mes = isset($meses[$mes]) ? $meses[$mes] : '';
+            $color_tipo = $row['tipo_item'] === 'percepcion' ? '#28a745' : '#dc3545';
+            $dni_val = htmlspecialchars($row['dni'] ?? '');
             echo "
-              <tr>
-                  <td>{$id}</td>
+              <tr data-dni='{$dni_val}'>
+                  <td>{$item_id}</td>
+                  <td>$nombre_mes/$anio (ID: $id_planilla)</td>
+                  <td>{$dni_val}</td>
                   <td>" . htmlspecialchars($row['nombre']) . "</td>
-                  <td>{$row['dias_trabajados']}</td>
-                  <td>L. " . number_format($row['salario_diario'], 2) . "</td>
-                  <td>{$row['horas_extra']}</td>
-                  <td>L. " . number_format($row['pago_extra'], 2) . "</td>
-                  <td>L. " . number_format($row['deducciones'], 2) . "</td>
-                  <td><b>L. " . number_format($row['salario_total'], 2) . "</b></td>
-                  <td>{$row['fecha_registro']}</td>
+                  <td>" . htmlspecialchars($row['descripcion']) . "</td>
+                  <td style='background-color: $color_tipo; color: white; text-align: center; font-weight: bold;'>$tipo_item</td>
+                  <td><b>L. " . number_format($row['monto_total'], 2) . "</b></td>
+                  <td>{$row['fecha_generacion']}</td>
                   <td class='acciones'>
-                    <button class='edit'   onclick='editarPlanilla({$id})'>✏️</button>
-                    <button class='delete' onclick='eliminarPlanilla({$id})'>🗑️</button>
-                    <button class='print'  onclick='window.open(\"/modulos/voucher_pago.php?id={$id}\", \"_blank\")'>🧾</button>
+                    <button class='edit'   onclick='editarPlanilla({$item_id})'>✏️</button>
+                    <button class='delete' onclick='eliminarPlanilla({$item_id})'>🗑️</button>
                   </td>
               </tr>";
         }
@@ -199,9 +248,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'tabla') {
    CARGAR REGISTRO INDIVIDUAL (AJAX)
    ==================================================== */
 if (isset($_GET['load'])) {
-    $id = (int)$_GET['load'];
-    $res = $conexion->query("SELECT * FROM tbl_planilla WHERE id_planilla = $id");
-    echo json_encode($res->fetch_assoc());
+    $id_item = (int)$_GET['load'];
+    // Obtener el item
+    $resItem = $conexion->query("SELECT * FROM tbl_planilla_items WHERE id_item = $id_item");
+    if ($resItem && $resItem->num_rows > 0) {
+        $item = $resItem->fetch_assoc();
+        $id_planilla = (int)$item['id_planilla'];
+        // Obtener la cabecera
+        $resCab = $conexion->query("SELECT * FROM tbl_planilla WHERE id_planilla = $id_planilla");
+        $cabecera = $resCab && $resCab->num_rows > 0 ? $resCab->fetch_assoc() : null;
+        echo json_encode(['item' => $item, 'cabecera' => $cabecera]);
+    } else {
+        echo json_encode(['item' => null, 'cabecera' => null]);
+    }
     exit();
 }
 
@@ -210,10 +269,10 @@ if (isset($_GET['load'])) {
    ==================================================== */
 if (isset($_GET['empleados'])) {
     $empleados = $conexion->query(
-        "SELECT id_empleado AS id, nombre, salario
-         FROM tbl_ms_empleados
-         WHERE estado = 'Activo'
-         ORDER BY nombre ASC"
+      "SELECT id_empleado AS id, nombre, salario, fecha_ingreso
+       FROM tbl_ms_empleados
+       WHERE estado = 'Activo'
+       ORDER BY nombre ASC"
     );
     $data = [];
     while ($e = $empleados->fetch_assoc()) {
@@ -235,6 +294,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generar'])) {
         exit();
     }
 
+    // 1) Crear o seleccionar la cabecera (una sola para el mes/anio)
+    $tipo = 'mensual';
+    $resCab = $conexion->query("SELECT id_planilla FROM tbl_planilla WHERE mes=$mes AND anio=$anio AND tipo='$tipo' LIMIT 1");
+    if ($resCab && $resCab->num_rows > 0) {
+        $rowCab = $resCab->fetch_assoc();
+        $id_planilla = (int)$rowCab['id_planilla'];
+    } else {
+        $periodo_inicio = date('Y-m-01', strtotime("$anio-$mes-01"));
+        $periodo_fin = date('Y-m-t', strtotime("$anio-$mes-01"));
+        $conexion->query("INSERT INTO tbl_planilla (periodo_inicio, periodo_fin, mes, anio, tipo, fecha_generacion, estado, creado_por, total_percepciones, total_deducciones, total_neto) VALUES ('$periodo_inicio','$periodo_fin',$mes,$anio,'$tipo',NOW(),'generada',$id_usuario,0,0,0)");
+        $id_planilla = $conexion->insert_id;
+    }
+
+    // 2) Procesar empleados e insertar items
     $empleados = $conexion->query("
         SELECT id_empleado, nombre, salario 
         FROM tbl_ms_empleados 
@@ -249,23 +322,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generar'])) {
         $nombre          = $conexion->real_escape_string($emp['nombre']);
         $salario_mensual = (float)$emp['salario'];
 
-        // Verificar si YA existe planilla para ese empleado en ese mes/año
+        // Verificar si YA existe item para ese empleado en esa planilla
         $stmtCheck = $conexion->prepare("
             SELECT 1 
-            FROM tbl_planilla 
-            WHERE empleado_id = ? 
-              AND MONTH(fecha_registro) = ? 
-              AND YEAR(fecha_registro) = ?
+            FROM tbl_planilla_items 
+            WHERE id_planilla = ? 
+              AND id_empleado = ?
             LIMIT 1
         ");
-        $stmtCheck->bind_param("iii", $id_empleado, $mes, $anio);
+        $stmtCheck->bind_param("ii", $id_planilla, $id_empleado);
         $stmtCheck->execute();
         $existe = $stmtCheck->get_result()->num_rows > 0;
         $stmtCheck->close();
 
         if ($existe) {
             $registros_omitidos++;
-            continue; // ya hay planilla ese mes para este empleado
+            continue; // ya hay item para este empleado en esta planilla
         }
 
         // Cálculos base
@@ -278,29 +350,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generar'])) {
         // Deducciones aproximadas
         $ihss = 260;
         $rap  = $salario_mensual * 0.015;
-        $isr  = calcularISR($salario_mensual * 12); // anual -> mensual dentro de la función
+        $isr  = calcularISR($salario_mensual * 12);
         $total_deducciones = $ihss + $rap + $isr;
         $salario_neto      = $total_ingresos - $total_deducciones;
 
-        // Usamos último día del mes como fecha_registro/pago
-        $fecha_pago = date('Y-m-t', strtotime("$anio-$mes-01"));
-
-        $sql = "INSERT INTO tbl_planilla (
-                    empleado_id, nombre, salario_empleado, dias_trabajados, salario_diario,
-                    horas_extra, pago_extra, total_ingresos, deducciones, total_egresos,
-                    salario_total, fecha_pago, fecha_registro
-                ) VALUES (
-                    $id_empleado, '$nombre', $salario_mensual, $dias_trabajados, $salario_diario,
-                    $horas_extra, $pago_extra, $total_ingresos, $total_deducciones, $total_deducciones,
-                    $salario_neto, '$fecha_pago', '$fecha_pago'
-                )";
-
-        if ($conexion->query($sql)) {
-            $registros_insertados++;
+        // Insertar PERCEP (ingresos)
+        $descripcion_percep = "Pago de nómina - $nombre";
+        $descripcion_percep = $conexion->real_escape_string($descripcion_percep);
+        $conexion->query("INSERT INTO tbl_planilla_items (id_planilla, id_empleado, tipo_item, descripcion, cantidad, monto_unitario, monto_total) VALUES ($id_planilla, $id_empleado, 'percepcion', '$descripcion_percep', 1, $total_ingresos, $total_ingresos)");
+        
+        // Insertar DEDUC (egresos) si hay deducciones
+        if ($total_deducciones > 0) {
+            $descripcion_deduc = "Deducciones - $nombre";
+            $descripcion_deduc = $conexion->real_escape_string($descripcion_deduc);
+            $conexion->query("INSERT INTO tbl_planilla_items (id_planilla, id_empleado, tipo_item, descripcion, cantidad, monto_unitario, monto_total) VALUES ($id_planilla, $id_empleado, 'deduccion', '$descripcion_deduc', 1, $total_deducciones, $total_deducciones)");
         }
+        
+        $registros_insertados++;
     }
+    
+    // 3) Recalcular totales en cabecera
+    $conexion->query("UPDATE tbl_planilla SET total_percepciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='percepcion'), total_deducciones = (SELECT IFNULL(SUM(monto_total),0) FROM tbl_planilla_items WHERE id_planilla = $id_planilla AND tipo_item='deduccion'), total_neto = (SELECT IFNULL(SUM(CASE WHEN tipo_item='percepcion' THEN monto_total ELSE -monto_total END),0) FROM tbl_planilla_items WHERE id_planilla=$id_planilla) WHERE id_planilla = $id_planilla");
 
     $descripcion = "Generación de planilla mensual $mes/$anio. Insertados: $registros_insertados. Omitidos (ya existían): $registros_omitidos.";
+    $descripcion = $conexion->real_escape_string($descripcion);
     $conexion->query("INSERT INTO tbl_ms_bitacora (id_usuario, accion, descripcion, fecha)
                       VALUES ($id_usuario, 'Generar Planilla Mensual', '$descripcion', NOW())");
 
@@ -344,16 +417,12 @@ function calcularISR($salario_anual) {
   </div>
 
   <div class="module-toolbar">
-    <div class="toolbar-left">
-      <button class="btn-primary" onclick="abrirModal()">
-        <span class="btn-icon">➕</span>
-        Nueva Planilla
-      </button>
-      <button class="btn-primary" onclick="generarPlanillaMensual()">
-        <span class="btn-icon">📅</span>
-        Generar Planilla Mensual
-      </button>
-    </div>
+      <div class="toolbar-left">
+        <button class="btn-primary" onclick="abrirModal()">
+          <span class="btn-icon">➕</span>
+          Nueva Planilla
+        </button>
+      </div>
     <div class="toolbar-right">
       <a href="/modulos/reporte_individual.php?modulo=planilla" class="btn-secondary" style="padding:10px 18px; border-radius:6px; text-decoration:none; margin-right:10px;">
         <span class="btn-icon">📊</span>
@@ -812,16 +881,13 @@ function calcularISR($salario_anual) {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  table.compacto th:nth-child(1), table.compacto td:nth-child(1) { width: 50px; }
-  table.compacto th:nth-child(2), table.compacto td:nth-child(2) { width: 180px; }
-  table.compacto th:nth-child(3), table.compacto td:nth-child(3) { width: 90px; }
-  table.compacto th:nth-child(4), table.compacto td:nth-child(4) { width: 100px; }
-  table.compacto th:nth-child(5), table.compacto td:nth-child(5) { width: 80px; }
-  table.compacto th:nth-child(6), table.compacto td:nth-child(6) { width: 100px; }
-  table.compacto th:nth-child(7), table.compacto td:nth-child(7) { width: 110px; }
-  table.compacto th:nth-child(8), table.compacto td:nth-child(8) { width: 110px; }
-  table.compacto th:nth-child(9), table.compacto td:nth-child(9) { width: 110px; }
-  table.compacto th:nth-child(10), table.compacto td:nth-child(10) { width: 110px; }
+  table.compacto th:nth-child(1), table.compacto td:nth-child(1) { width: 70px; }
+  table.compacto th:nth-child(2), table.compacto td:nth-child(2) { width: 120px; }
+  table.compacto th:nth-child(3), table.compacto td:nth-child(3) { width: 160px; }
+  table.compacto th:nth-child(4), table.compacto td:nth-child(4) { width: 200px; }
+  table.compacto th:nth-child(5), table.compacto td:nth-child(5) { width: 100px; }
+  table.compacto th:nth-child(6), table.compacto td:nth-child(6) { width: 140px; }
+  table.compacto th:nth-child(7), table.compacto td:nth-child(7) { width: 100px; }
 
   table.compacto td.acciones {
     display: grid;
@@ -862,10 +928,13 @@ async function cargarTabla(){
   try {
     const res = await fetch('/modulos/planilla.php?ajax=tabla');
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    document.getElementById('tablaPlanilla').innerHTML = await res.text();
+    const html = await res.text();
+    console.log('Tabla cargada:', html.substring(0, 100));
+    document.getElementById('tablaPlanilla').innerHTML = html;
   } catch (err) {
+    console.error('Error:', err);
     document.getElementById('tablaPlanilla').innerHTML =
-      `<div class="error-msg">No se pudo cargar la tabla (${err.message}).</div>`;
+      `<div style="color:red; padding:20px; text-align:center;">No se pudo cargar la tabla (${err.message}).</div>`;
   }
 }
 
@@ -883,6 +952,7 @@ async function cargarEmpleados(){
     option.value = e.id;
     option.textContent = e.nombre;
     option.dataset.salario = e.salario || 0;
+    option.dataset.fecha = e.fecha_ingreso || '';
     select.appendChild(option);
   });
 }
@@ -914,8 +984,19 @@ window.onclick = function(event) {
 };
 
 function buscarPlanilla() {
-  const filtro = document.getElementById("buscarPlanilla").value.toLowerCase();
+  const filtroRaw = document.getElementById("buscarPlanilla").value.trim();
+  const filtro = filtroRaw.toLowerCase();
   const filas = document.querySelectorAll("#tablaPlanillaAjax tbody tr");
+
+  // Si la búsqueda es solo dígitos, priorizar búsqueda por DNI (data-dni)
+  if (/^\d+$/.test(filtroRaw)) {
+    filas.forEach(fila => {
+      const dni = (fila.dataset.dni || '').toLowerCase();
+      fila.style.display = dni.includes(filtro) ? "" : "none";
+    });
+    return;
+  }
+
   filas.forEach(fila => {
     const texto = fila.textContent.toLowerCase();
     fila.style.display = texto.includes(filtro) ? "" : "none";
@@ -923,51 +1004,8 @@ function buscarPlanilla() {
 }
 
 function generarPlanillaMensual() {
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000;
-  `;
-  modal.innerHTML = `
-    <div style="background: white; padding: 20px; border-radius: 8px; width: 300px;">
-      <h3>Generar Planilla Mensual</h3>
-      <form id="formGenerar">
-        <label>Mes:</label>
-        <select name="mes" required>
-          <option value="">Seleccione mes</option>
-          ${Array.from({length:12}, (_,i) => `<option value="${i+1}">${new Date(0,i).toLocaleString('es', {month:'long'})}</option>`).join('')}
-        </select><br><br>
-        <label>Año:</label>
-        <select name="anio" required>
-          <option value="">Seleccione año</option>
-          ${Array.from({length:11}, (_,i) => `<option value="${2023+i}">${2023+i}</option>`).join('')}
-        </select><br><br>
-        <button type="submit">Generar</button>
-        <button type="button" onclick="this.closest('div').parentElement.remove()">Cancelar</button>
-      </form>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  document.getElementById('formGenerar').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    formData.append('generar', '1');
-    const res = await fetch('/modulos/planilla.php', {method: 'POST', body: formData});
-    const txt = await res.text();
-    try {
-      const data = JSON.parse(txt);
-      if (data.success) {
-        alert(data.message);
-        modal.remove();
-        cargarTabla();
-      } else {
-        alert('Error: ' + (data.message || 'Ocurrió un error.'));
-      }
-    } catch(_) {
-      alert('Respuesta inesperada: ' + txt);
-    }
-  });
+  // Generación mensual ahora se gestiona desde Planilla General / administrador.
+  alert('La generación masiva de planilla se gestiona desde Planilla General.');
 }
 
 function calcularTotal(){
@@ -986,7 +1024,6 @@ function calcularTotal(){
   const deduccionesCalc = ihss + ret_fuente + rap + cuentas + rap_ajuste;
   const deducciones = deduccionesCalc > 0 ? deduccionesCalc : deduInput;
 
-  // Si se está usando el detalle, reflejarlo en el campo total deducciones
   if (deduccionesCalc > 0) {
     document.getElementById('deducciones').value = deducciones.toFixed(2);
   }
@@ -1014,32 +1051,39 @@ document.getElementById('formPlanilla').addEventListener('submit', async (e)=>{
   const txt = await res.text();
   if (txt.trim()==='OK'){
     cerrarModal();
-    cargarTabla();
+    cargarTabla();  // Recargar la tabla automáticamente
   } else {
     alert(txt);
   }
 });
 
-async function editarPlanilla(id){
+async function editarPlanilla(id_item){
   await cargarEmpleados();
-  const res = await fetch('/modulos/planilla.php?load='+id);
-  const j   = await res.json();
+  const res = await fetch('/modulos/planilla.php?load='+id_item);
+  const data = await res.json();
+  
+  if (!data.item) {
+    alert('Error: No se pudo cargar el registro.');
+    return;
+  }
+  
+  const item = data.item;
+  const cabecera = data.cabecera;
 
-  document.getElementById('idPlanilla').value        = j.id_planilla;
-  document.getElementById('empleado_id').value       = j.empleado_id;
-  document.getElementById('dias_trabajados').value   = j.dias_trabajados;
-  document.getElementById('salario_diario').value    = j.salario_diario;
-  document.getElementById('horas_extra').value       = j.horas_extra;
-  document.getElementById('pago_extra').value        = j.pago_extra;
-  document.getElementById('deducciones').value       = j.deducciones;
-  document.getElementById('fecha_registro').value    = j.fecha_registro;
+  document.getElementById('idPlanilla').value        = item.id_item;
+  document.getElementById('empleado_id').value       = item.id_empleado;
+  document.getElementById('dias_trabajados').value   = 1;
+  document.getElementById('salario_diario').value    = item.monto_total;
+  document.getElementById('horas_extra').value       = 0;
+  document.getElementById('pago_extra').value        = 0;
+  document.getElementById('deducciones').value       = 0;
+  document.getElementById('fecha_registro').value    = cabecera ? cabecera.fecha_generacion.split(' ')[0] : new Date().toISOString().split('T')[0];
 
-  // Campos de detalle de deducciones (si existen en la tabla, se llenan, si no, quedan en 0)
-  document.getElementById('ihss').value       = j.ihss ? j.ihss : 0;
-  document.getElementById('ret_fuente').value = j.ret_fuente ? j.ret_fuente : 0;
-  document.getElementById('rap').value        = j.rap ? j.rap : 0;
-  document.getElementById('cuentas').value    = j.cuentas ? j.cuentas : (j.cuentas_cobrar ? j.cuentas_cobrar : 0);
-  document.getElementById('rap_ajuste').value = j.rap_ajuste ? j.rap_ajuste : 0;
+  document.getElementById('ihss').value       = 0;
+  document.getElementById('ret_fuente').value = 0;
+  document.getElementById('rap').value        = 0;
+  document.getElementById('cuentas').value    = 0;
+  document.getElementById('rap_ajuste').value = 0;
 
   document.getElementById('tituloModal').innerText   = 'Editar Registro de Planilla';
   document.getElementById('modalPlanilla').style.display = 'flex';
@@ -1054,24 +1098,38 @@ async function eliminarPlanilla(id){
   fd.append('id', id);
   const res = await fetch('/modulos/planilla.php', {method:'POST', body:fd});
   const txt = await res.text();
-  if (txt.trim()==='OK') cargarTabla(); else alert(txt);
+  if (txt.trim()==='OK') {
+    cargarTabla();  // Recargar la tabla automáticamente
+  } else {
+    alert(txt);
+  }
 }
 
 // Al cambiar empleado, calcular salario diario desde el salario mensual
-document.addEventListener('DOMContentLoaded', function () {
-  const sel = document.getElementById('empleado_id');
-  if (sel) {
-    sel.addEventListener('change', function () {
-      const opt = this.options[this.selectedIndex];
-      const salarioMensual = opt ? parseFloat(opt.dataset.salario || '0') : 0;
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'empleado_id') {
+    const opt = e.target.options[e.target.selectedIndex];
+    const salarioMensual = opt ? parseFloat(opt.dataset.salario || '0') : 0;
 
-      if (salarioMensual > 0) {
-        const salarioDiario = salarioMensual / 30;
-        document.getElementById('salario_diario').value = salarioDiario.toFixed(2);
+    if (salarioMensual > 0) {
+      const salarioDiario = salarioMensual / 30;
+      document.getElementById('salario_diario').value = salarioDiario.toFixed(2);
+    }
+    // Autocompletar fecha de registro con fecha de ingreso si está disponible
+    const fechaIngreso = opt ? (opt.dataset.fecha || '') : '';
+    if (fechaIngreso) {
+      const inputFecha = document.getElementById('fecha_registro');
+      if (inputFecha && (!inputFecha.value || inputFecha.value === '')) {
+        inputFecha.value = fechaIngreso.split('T')[0] || fechaIngreso;
       }
-      calcularTotal();
-    });
+    }
+    calcularTotal();
   }
+});
+
+// **CARGAR TABLA AL INICIAR LA PÁGINA (SIN CLICK)**
+document.addEventListener('DOMContentLoaded', function () {
+  console.log('Página cargada, iniciando carga de tabla...');
   cargarTabla();
 });
 </script>

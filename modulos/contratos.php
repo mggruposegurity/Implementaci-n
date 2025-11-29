@@ -1,7 +1,7 @@
 <?php
+session_start();
 ob_start();
 include("../conexion.php");
-session_start();
 
 if (!isset($_SESSION['usuario'])) {
     if (isset($_GET['load']) || isset($_GET['ajax']) || isset($_GET['nuevo_numero'])) {
@@ -68,7 +68,7 @@ if (isset($_GET['nuevo_numero']) && $_GET['nuevo_numero'] == '1') {
 
         $tmp = 'CT-' . $num;
 
-        $stmtCheck = $conexion->prepare("SELECT 1 FROM TBL_MS_CONTRATOS WHERE numero_contrato = ? LIMIT 1");
+        $stmtCheck = $conexion->prepare("SELECT 1 FROM tbl_ms_contratos WHERE numero_contrato = ? LIMIT 1");
         if ($stmtCheck) {
             $stmtCheck->bind_param("s", $tmp);
             $stmtCheck->execute();
@@ -146,7 +146,7 @@ if (isset($_POST['accion'])) {
 
         if ($accion === 'agregar') {
             $stmtIns = $conexion->prepare("
-                INSERT INTO TBL_MS_CONTRATOS
+                INSERT INTO tbl_ms_contratos
                     (id_cliente, numero_contrato, nombre_cliente, fecha_inicio, fecha_fin, monto, tipo, estado, observaciones)
                 VALUES (?,?,?,?,?,?,?,?,?)
             ");
@@ -204,7 +204,7 @@ if (isset($_POST['accion'])) {
             }
 
             $stmtUpd = $conexion->prepare("
-                UPDATE TBL_MS_CONTRATOS SET
+                UPDATE tbl_ms_contratos SET
                     id_cliente = ?,
                     numero_contrato = ?,
                     nombre_cliente = ?,
@@ -270,7 +270,7 @@ if (isset($_POST['accion'])) {
     // === ELIMINAR (LÓGICO) ===
     if ($accion === 'eliminar') {
         $id = (int)$_POST['id'];
-        $conexion->query("UPDATE TBL_MS_CONTRATOS SET estado='INACTIVO' WHERE id=$id");
+        $conexion->query("UPDATE tbl_ms_contratos SET estado='INACTIVO' WHERE id=$id");
 
         if ($id_usuario !== null) {
             $accion_b    = "Inactivación de Contrato";
@@ -294,7 +294,7 @@ if (isset($_POST['accion'])) {
 // === CARGAR TABLA (AJAX) ===
 if (isset($_GET['ajax']) && $_GET['ajax'] == 'tabla') {
     $query = "SELECT id, numero_contrato, nombre_cliente, fecha_inicio, fecha_fin, monto, tipo, estado, observaciones 
-              FROM TBL_MS_CONTRATOS 
+              FROM tbl_ms_contratos 
               ORDER BY id DESC"; // <-- TODOS los contratos, incluidos INACTIVO
     $result = $conexion->query($query);
     echo "<table id='tablaContratosAjax'>
@@ -348,7 +348,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'reporte') {
     ob_end_clean();
 
     $query = "SELECT id, numero_contrato, nombre_cliente, fecha_inicio, fecha_fin, monto, tipo, estado, observaciones 
-              FROM TBL_MS_CONTRATOS 
+              FROM tbl_ms_contratos 
               ORDER BY id DESC"; // también TODOS, incluidos INACTIVO
     $result = $conexion->query($query);
 
@@ -437,7 +437,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'reporte') {
 $tablaRenderInicial = '';
 if (!isset($_GET['ajax']) && !isset($_GET['load']) && !isset($_POST['accion'])) {
   $query = "SELECT id, numero_contrato, nombre_cliente, fecha_inicio, fecha_fin, monto, tipo, estado, observaciones 
-            FROM TBL_MS_CONTRATOS 
+            FROM tbl_ms_contratos 
             ORDER BY id DESC";
   if ($result = $conexion->query($query)) {
     ob_start();
@@ -468,7 +468,7 @@ if (isset($_GET['load'])) {
     header('Content-Type: application/json');
     try {
         $id = (int)$_GET['load'];
-        $res = $conexion->query("SELECT * FROM TBL_MS_CONTRATOS WHERE id=$id");
+        $res = $conexion->query("SELECT * FROM tbl_ms_contratos WHERE id=$id");
         if ($res && $row = $res->fetch_assoc()) {
             echo json_encode($row);
         } else {

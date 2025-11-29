@@ -318,7 +318,7 @@ if ($query && $query->num_rows > 0) {
         <a href="#" onclick="cargarModulo('contratos.php', this)">📄 Gestión de Contratos</a>
 
         <!-- 7. Gestión de Planilla -->
-        <a href="#" onclick="cargarModulo('planilla.php', this)">🗂️ Gestión de Planilla</a>
+        <a href="#" onclick="cargarModulo('planilla_nueva.php', this)">🗂️ Gestión de Planilla</a>
 
           <!-- 8. Gestión de General -->
         <a href="#" onclick="cargarModulo('planilla_general.php', this)">📊 Planilla General</a>

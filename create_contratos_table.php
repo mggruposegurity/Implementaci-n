@@ -1,7 +1,7 @@
 <?php
 include('conexion.php');
 
-$sql = "CREATE TABLE IF NOT EXISTS TBL_MS_CONTRATOS (
+$sql = "CREATE TABLE IF NOT EXISTS tbl_ms_contratos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     numero_contrato VARCHAR(50) NOT NULL UNIQUE,
     nombre_cliente VARCHAR(100) NOT NULL,
@@ -14,7 +14,7 @@ $sql = "CREATE TABLE IF NOT EXISTS TBL_MS_CONTRATOS (
 )";
 
 if ($conexion->query($sql) === TRUE) {
-    echo "Table TBL_MS_CONTRATOS created successfully.";
+    echo "Table tbl_ms_contratos created successfully.";
 } else {
     echo "Error creating table: " . $conexion->error;
 }

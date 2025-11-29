@@ -131,7 +131,7 @@ if (isset($_POST['accion'])) {
         // Verificar que el contrato pertenezca al cliente
         $stmtVer = $conexion->prepare("
             SELECT c.monto, c.id_cliente, cli.nombre
-            FROM TBL_MS_CONTRATOS c
+            FROM tbl_ms_contratos c
             INNER JOIN tbl_ms_clientes cli ON cli.id = c.id_cliente
             WHERE c.id = ? AND cli.id = ? AND c.estado != 'INACTIVO'
             LIMIT 1
@@ -375,7 +375,7 @@ $sqlContratos = "
            c.numero_contrato,
            cli.id AS id_cliente,
            cli.nombre
-    FROM TBL_MS_CONTRATOS c
+    FROM tbl_ms_contratos c
     INNER JOIN tbl_ms_clientes cli ON cli.id = c.id_cliente
     WHERE c.estado != 'INACTIVO' AND cli.estado = 'ACTIVO'
     ORDER BY cli.nombre ASC

@@ -1,6 +1,6 @@
 <?php
-include("../conexion.php");
 session_start();
+include("../conexion.php");
 
 // =========================
 // VALIDAR SESIÓN Y ROL
@@ -21,65 +21,87 @@ if ($rol_usuario !== 'admin') {
 }
 
 // =========================
-// OBTENER ID DE PLANILLA
+// OBTENER DATOS PARA EL VOUCHER
+// Soporta: ?item=ID_ITEM  (preferido)
+//          ?id=ID_PLANILLA&empleado=ID_EMPLEADO  (compatibilidad)
 // =========================
+
+$id_item = isset($_GET['item']) ? (int)$_GET['item'] : 0;
 $id_planilla = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if ($id_planilla <= 0) {
-    echo "<script>alert('ID de planilla inválido.'); window.location='planilla.php';</script>";
+$id_empleado = isset($_GET['empleado']) ? (int)$_GET['empleado'] : 0;
+
+$planilla = null;
+
+if ($id_item > 0) {
+    $stmt = $conexion->prepare(
+        "SELECT pi.*, e.nombre, e.dni AS identidad, e.puesto, e.salario AS salario_empleado, p.mes, p.anio, p.fecha_generacion AS fecha_pago
+         FROM tbl_planilla_items pi
+         JOIN tbl_planilla p ON pi.id_planilla = p.id_planilla
+         JOIN tbl_ms_empleados e ON pi.id_empleado = e.id_empleado
+         WHERE pi.id_item = ? LIMIT 1"
+    );
+    $stmt->bind_param('i', $id_item);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res && $res->num_rows > 0) {
+        $planilla = $res->fetch_assoc();
+        $id_planilla = (int)$planilla['id_planilla'];
+    }
+    $stmt->close();
+} elseif ($id_planilla > 0 && $id_empleado > 0) {
+    $stmt = $conexion->prepare(
+        "SELECT pi.*, e.nombre, e.dni AS identidad, e.puesto, e.salario AS salario_empleado, p.mes, p.anio, p.fecha_generacion AS fecha_pago
+         FROM tbl_planilla_items pi
+         JOIN tbl_planilla p ON pi.id_planilla = p.id_planilla
+         JOIN tbl_ms_empleados e ON pi.id_empleado = e.id_empleado
+         WHERE pi.id_planilla = ? AND pi.id_empleado = ? LIMIT 1"
+    );
+    $stmt->bind_param('ii', $id_planilla, $id_empleado);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res && $res->num_rows > 0) {
+        $planilla = $res->fetch_assoc();
+    }
+    $stmt->close();
+} else {
+    echo "<script>alert('Parámetros inválidos para mostrar el voucher.'); window.location='planilla.php';</script>";
     exit();
 }
 
-// =========================
-// OBTENER DATOS DE PLANILLA + EMPLEADO
-//  (AJUSTADO A TUS COLUMNAS REALES)
-// =========================
-$stmt = $conexion->prepare("
-    SELECT 
-        p.*,
-        e.nombre      AS empleado_nombre,
-        e.dni         AS identidad,
-        e.puesto
-        -- si luego agregas departamento, numero_cuenta, etc., los seleccionas aquí
-        -- e.departamento,
-        -- e.numero_cuenta
-    FROM tbl_planilla p
-    LEFT JOIN tbl_ms_empleados e ON p.empleado_id = e.id_empleado
-    WHERE p.id_planilla = ?
-    LIMIT 1
-");
-$stmt->bind_param("i", $id_planilla);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if (!$result || $result->num_rows == 0) {
-    echo "<script>alert('Planilla no encontrada.'); window.location='planilla.php';</script>";
+if (!$planilla) {
+    echo "<script>alert('Registro de planilla no encontrado.'); window.location='planilla.php';</script>";
     exit();
 }
-$planilla = $result->fetch_assoc();
 
-// Nombre del empleado (preferir el de empleados; si no, el de planilla por compatibilidad)
-$nombreEmpleado = $planilla['empleado_nombre'] ?? ($planilla['nombre'] ?? 'Empleado');
+// Nombre del empleado
+$nombreEmpleado = $planilla['nombre'] ?? ($planilla['empleado_nombre'] ?? 'Empleado');
 
 // =========================
-// OBTENER DETALLE DE DEDUCCIONES (si existe tabla)
+// Construir detalle de deducciones desde campos del item (si existen)
 // =========================
 $detalle_deducciones = [];
-$total_deducciones_detalle = 0;
+$total_deducciones_detalle = 0.0;
 
-if ($stmtDed = $conexion->prepare("SELECT tipo, monto FROM tbl_planilla_deducciones WHERE id_planilla = ?")) {
-    $stmtDed->bind_param("i", $id_planilla);
-    $stmtDed->execute();
-    $resDed = $stmtDed->get_result();
+$possible_dedu = [
+    'ihss' => 'IHSS',
+    'ret_fuente' => 'Retención en la Fuente',
+    'rap' => 'RAP',
+    'cuentas' => 'Cuentas por Cobrar',
+    'rap_ajuste' => 'RAP Ajuste',
+    'otras_deducciones' => 'Otras Deducciones'
+];
 
-    while ($row = $resDed->fetch_assoc()) {
-        $detalle_deducciones[] = $row;
-        $total_deducciones_detalle += (float)$row['monto'];
+foreach ($possible_dedu as $field => $label) {
+    if (isset($planilla[$field]) && (float)$planilla[$field] > 0) {
+        $detalle_deducciones[] = ['tipo' => $label, 'monto' => (float)$planilla[$field]];
+        $total_deducciones_detalle += (float)$planilla[$field];
     }
 }
 
-// Si no hay detalle, usamos el total_egresos guardado
-if ($total_deducciones_detalle <= 0 && isset($planilla['total_egresos'])) {
-    $total_deducciones_detalle = (float)$planilla['total_egresos'];
+// Si aún no hay detalle, intentar leer campos genéricos
+if ($total_deducciones_detalle <= 0) {
+    if (isset($planilla['total_deducciones'])) $total_deducciones_detalle = (float)$planilla['total_deducciones'];
+    elseif (isset($planilla['deducciones'])) $total_deducciones_detalle = (float)$planilla['deducciones'];
 }
 
 // =========================
