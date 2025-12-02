@@ -103,12 +103,17 @@ function obtenerSiguienteNumeroFactura($conexion) {
 
         // Verificar si está dentro del rango
         if ($siguiente_num <= $rango_fin) {
-            return [
-                'numero'       => '000-001-01-' . str_pad($siguiente_num, 4, '0', STR_PAD_LEFT),
-                'cai'          => $cai,
-                'rango_inicio' => $cai_data['rango_inicio'],
-                'rango_fin'    => $cai_data['rango_fin']
-            ];
+          // Cambiado a 5 dígitos al final: 000-001-01-00001
+          $numero_generado = '000-001-01-0000' . str_pad($siguiente_num, 5, '0', STR_PAD_LEFT);
+          $remaining = ($rango_fin - $siguiente_num) + 1;
+          return [
+            'numero'       => $numero_generado,
+            'cai'          => $cai,
+            'rango_inicio' => $cai_data['rango_inicio'],
+            'rango_fin'    => $cai_data['rango_fin'],
+            'siguiente_num'=> $siguiente_num,
+            'remaining'    => $remaining
+          ];
         }
     }
     return null; // No hay rango disponible
@@ -169,6 +174,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rango_inicio   = $factura_data['rango_inicio'];
             $rango_fin      = $factura_data['rango_fin'];
 
+          // Validar formato del correlativo: 3-3-2-5 (ej: 000-001-01-00001)
+          if (!preg_match('/^\d{3}-\d{3}-\d{2}-\d{5}$/', $numero_factura)) {
+            echo "Error: Formato de número de factura inválido (se espera 000-001-01-00001).";
+            exit();
+          }
+
             // IMPORTANTE:
             // Tu tabla real `tbl_ms_facturas` tiene:
             // id, id_cliente, id_contrato, numero_factura, cliente, rtn,
@@ -209,6 +220,18 @@ if (isset($_GET['id'])) {
         $factura  = $result->fetch_assoc();
         $editMode = isset($_GET['edit']);
     }
+}
+
+// Obtener información del siguiente número y verificar rangos restantes (para alerta)
+$siguiente_info = obtenerSiguienteNumeroFactura($conexion);
+$alerta_rangos = false;
+$rangos_restantes = null;
+$RANGO_UMBRAL = 100; // umbral: avisar si quedan <= 100 números
+if ($siguiente_info) {
+  $rangos_restantes = intval($siguiente_info['remaining']);
+  if ($rangos_restantes <= $RANGO_UMBRAL) {
+    $alerta_rangos = true;
+  }
 }
 ?>
 
@@ -340,9 +363,16 @@ if (isset($_GET['id'])) {
       Cel. (+504) 8748-1336 | Correo: mlaseviciosdeseguridad@gmail.com<br>
       RTN: 08019052310286 | CAI: <?php echo $factura ? htmlspecialchars($factura['cai']) : '372658-02DDEF-A9A7E0-63BE03-09093A-E1'; ?>
     </div>
+    <?php if (!empty($alerta_rangos) && $alerta_rangos): ?>
+      <div style="background:#fff3cd;border:1px solid #ffeeba;padding:10px;margin:10px 0;color:#856404;">
+        <strong>Advertencia:</strong>
+        Quedan <?php echo htmlspecialchars($rangos_restantes); ?> números en el rango de facturación activo.
+        Por favor configure un nuevo CAI o rango en Gestión de CAI.
+      </div>
+    <?php endif; ?>
     <hr>
     <h3>FACTURA</h3>
-    <p>N° <?php echo $factura ? htmlspecialchars($factura['numero_factura']) : '000-001-01-0000'; ?></p>
+    <p>N° <?php echo $factura ? htmlspecialchars($factura['numero_factura']) : '000-001-01-00001'; ?></p>
   </div>
 
   <table width="100%">
